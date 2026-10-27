@@ -1,0 +1,545 @@
+<!doctype html>
+<html lang="en">
+<head>
+<title>Fingerlight Bench</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#24508F">
+<style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
+</head>
+<body>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chivo:wght@400;600;800&family=Chivo+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: one narrow instrument column — controls, live sync strip, then one card per light path */
+:root{
+  --bg:#ECEFF3; --surface:#FFFFFF; --ink:#161A20; --muted:#5A6370; --line:#D3D9E0;
+  --accent:#24508F; --trans:#B3122B; --refl:#B86E06; --dark:#7C8694; --warn:#A33A00;
+  --trans-tint:rgba(179,18,43,.12); --refl-tint:rgba(184,110,6,.14);
+  --f-display:"Chivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-body:"Chivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-data:"Chivo Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#0E1217; --surface:#161B22; --ink:#E5E9EF; --muted:#8C96A4; --line:#29303A;
+  --accent:#86A9FF; --trans:#FF5A6E; --refl:#F2AA3E; --dark:#6B7480; --warn:#FF8A4C;
+  --trans-tint:rgba(255,90,110,.14); --refl-tint:rgba(242,170,62,.14); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#0E1217; --surface:#161B22; --ink:#E5E9EF; --muted:#8C96A4; --line:#29303A;
+  --accent:#86A9FF; --trans:#FF5A6E; --refl:#F2AA3E; --dark:#6B7480; --warn:#FF8A4C;
+  --trans-tint:rgba(255,90,110,.14); --refl-tint:rgba(242,170,62,.14); color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.45}
+.wrap{max-width:620px;margin:0 auto;padding-block:18px 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
+  display:flex;flex-direction:column;gap:16px}
+h1{font-family:var(--f-display);font-weight:800;font-size:1.6rem;letter-spacing:-.01em;margin:0;text-wrap:balance}
+h2{font-family:var(--f-display);font-weight:600;font-size:1rem;margin:0;text-wrap:balance}
+.lede{color:var(--muted);margin:4px 0 0;font-size:.92rem;max-width:60ch}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:12px;min-width:0}
+.label{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.seg button{all:unset;cursor:pointer;text-align:center;padding:10px 4px;font-size:.85rem;line-height:1.2}
+.seg button+button{border-left:1px solid var(--line)}
+.seg button small{display:block;color:var(--muted);font-size:.7rem;margin-top:2px}
+.seg button[aria-pressed="true"]{background:var(--accent);color:var(--surface)}
+.seg button[aria-pressed="true"] small{color:var(--surface);opacity:.8}
+.seg button:focus-visible,.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.btn{font:inherit;font-weight:600;border-radius:8px;padding:10px 16px;cursor:pointer;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--surface)}
+.btn:disabled{opacity:.45;cursor:default}
+.status{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.chip{font-family:var(--f-data);font-size:.75rem;padding:3px 8px;border-radius:99px;border:1px solid var(--line);color:var(--muted);white-space:nowrap}
+.chip.phase-self{color:var(--refl);border-color:var(--refl);background:var(--refl-tint)}
+.chip.phase-other{color:var(--trans);border-color:var(--trans);background:var(--trans-tint)}
+.chip.warn{color:var(--warn);border-color:var(--warn)}
+.demo{font-size:.82rem;color:var(--warn);border-left:3px solid var(--warn);padding-left:10px}
+.bench{display:grid;grid-template-columns:96px 1fr;gap:12px;align-items:stretch}
+.preview{position:relative;width:96px;aspect-ratio:3/4;max-width:100%;border-radius:8px;overflow:hidden;background:#000;border:1px solid var(--line)}
+.preview video,.preview canvas{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.preview .roi{position:absolute;left:25%;top:25%;width:50%;height:50%;border:1px dashed rgba(255,255,255,.75)}
+canvas.plot{width:100%;display:block;min-width:0}
+.cards{display:grid;grid-template-columns:1fr;gap:16px}
+.card-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap}
+.card-head .path{font-family:var(--f-data);font-size:.75rem;color:var(--muted)}
+.swatch{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:baseline}
+.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 12px}
+.metric .v{font-family:var(--f-data);font-size:1.15rem;font-variant-numeric:tabular-nums}
+.metric .v small{font-size:.7rem;color:var(--muted);margin-left:2px}
+.metric .k{font-size:.7rem;color:var(--muted)}
+.settings{display:grid;grid-template-columns:1fr;gap:12px}
+.setting{display:grid;grid-template-columns:1fr auto;gap:2px 10px;align-items:center}
+.setting label{font-size:.85rem}
+.setting output{font-family:var(--f-data);font-size:.8rem;color:var(--muted);font-variant-numeric:tabular-nums}
+.setting input[type=range]{grid-column:1/-1;width:100%;accent-color:var(--accent)}
+.setting .hint{grid-column:1/-1;font-size:.72rem;color:var(--muted)}
+.steps{margin:0;padding-left:1.2em;font-size:.88rem;display:flex;flex-direction:column;gap:6px;max-width:62ch}
+.note{font-size:.8rem;color:var(--muted);max-width:62ch;margin:0}
+details summary{cursor:pointer;font-family:var(--f-display);font-weight:600}
+@media (min-width:560px){.settings{grid-template-columns:1fr 1fr}.bench{grid-template-columns:120px 1fr}.preview{width:120px}}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Fingerlight Bench</h1>
+    <p class="lede">Two phones, one finger between them. Each phone takes turns lighting the finger with its flashlight while both cameras record. The phones keep time by watching each other's light, so no network is needed.</p>
+  </header>
+
+  <section class="panel" aria-labelledby="role-h">
+    <h2 id="role-h">This phone's role</h2>
+    <div class="seg" role="group" aria-label="Role">
+      <button id="role-leader" data-role="leader" aria-pressed="true">Leader<small>sets the rhythm</small></button>
+      <button id="role-follower" data-role="follower" aria-pressed="false">Follower<small>answers the light</small></button>
+      <button id="role-solo" data-role="solo" aria-pressed="false">Solo<small>one phone test</small></button>
+    </div>
+    <div class="row">
+      <button class="btn primary" id="startBtn">Start camera</button>
+      <button class="btn" id="stopBtn" disabled>Stop</button>
+      <button class="btn" id="demoBtn">Run simulation</button>
+    </div>
+    <div class="status" aria-live="polite">
+      <span class="chip" id="phaseChip">idle</span>
+      <span class="chip" id="fpsChip">— fps</span>
+      <span class="chip" id="torchChip">torch ?</span>
+      <span class="chip" id="expChip">exposure ?</span>
+      <span class="chip" id="satChip" hidden>saturated</span>
+    </div>
+    <p class="demo" id="demoNote">Simulated signals. A leader phone is shown with a virtual follower answering it, and a synthetic pulse at about 72 bpm. Press Start camera to use this phone's camera.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="live-h">
+    <div class="card-head"><h2 id="live-h">Light seen by this camera</h2><span class="path">last 30 s · centre of frame</span></div>
+    <div class="bench">
+      <div class="preview" id="preview">
+        <video id="video" playsinline muted></video>
+        <canvas id="simPreview" width="12" height="16"></canvas>
+        <div class="roi"></div>
+      </div>
+      <canvas class="plot" id="timeline" height="150" aria-label="Brightness over the last 30 seconds, shaded by which phone was lighting"></canvas>
+    </div>
+    <div class="row" style="gap:14px;font-size:.78rem;color:var(--muted)">
+      <span><span class="swatch" style="background:var(--refl)"></span>own light (bounced back)</span>
+      <span><span class="swatch" style="background:var(--trans)"></span>other phone's light (through finger)</span>
+    </div>
+  </section>
+
+  <div class="cards">
+    <section class="panel" aria-labelledby="t-h">
+      <div class="card-head"><h2 id="t-h"><span class="swatch" style="background:var(--trans)"></span>Through the finger</h2><span class="path" id="t-path">other phone → finger → this camera</span></div>
+      <canvas class="plot" id="t-wave" height="110" aria-label="Latest pulse waveform, transmitted light"></canvas>
+      <div class="metrics" id="t-metrics"></div>
+    </section>
+    <section class="panel" aria-labelledby="r-h">
+      <div class="card-head"><h2 id="r-h"><span class="swatch" style="background:var(--refl)"></span>Bounced back</h2><span class="path">this phone → finger → this camera</span></div>
+      <canvas class="plot" id="r-wave" height="110" aria-label="Latest pulse waveform, reflected light"></canvas>
+      <div class="metrics" id="r-metrics"></div>
+    </section>
+  </div>
+
+  <section class="panel" aria-labelledby="set-h">
+    <h2 id="set-h">Timing and camera</h2>
+    <div class="settings">
+      <div class="setting"><label for="slot">Light slot length</label><output id="slotOut"></output>
+        <input type="range" id="slot" min="3" max="12" step="1" value="6"><span class="hint">Set the same value on both phones. Longer slots give steadier pulse readings.</span></div>
+      <div class="setting"><label for="gap">Dark gap between slots</label><output id="gapOut"></output>
+        <input type="range" id="gap" min="0.6" max="2.5" step="0.1" value="1.2"><span class="hint">Lets the flashlight switch off fully. Raise it if the phones lose sync.</span></div>
+      <div class="setting"><label for="thr">Light detection threshold</label><output id="thrOut"></output>
+        <input type="range" id="thr" min="2" max="30" step="1" value="6"><span class="hint">Brightness rise, in camera levels, that counts as the other phone's light.</span></div>
+      <div class="setting"><label for="exp">Exposure time</label><output id="expOut">auto</output>
+        <input type="range" id="exp" min="0" max="100" step="1" value="50" disabled><span class="hint" id="expHint">Becomes available when the camera supports manual exposure.</span></div>
+    </div>
+  </section>
+
+  <section class="panel" aria-labelledby="exp-h">
+    <h2 id="exp-h">Save the recording</h2>
+    <p class="note">Each phone records its own two light paths. Save from both phones and line the files up by slot to get all four measurements.</p>
+    <div class="row">
+      <button class="btn" id="saveBtn">Save CSV</button>
+      <button class="btn" id="copyBtn">Copy slot summary</button>
+      <span class="note" id="saveMsg"></span>
+    </div>
+  </section>
+
+  <section class="panel">
+    <details open>
+      <summary>Setting up the two phones</summary>
+      <ol class="steps" style="margin-top:10px">
+        <li>Open this page on both phones over HTTPS. Choose Leader on one and Follower on the other, with the same slot length.</li>
+        <li>Lay the leader on a table, back up. Put a fingertip over its camera and flashlight.</li>
+        <li>Press the follower's back down on top of the finger, so the finger sits between the two lenses.</li>
+        <li>Press Start on the follower first, then on the leader. Keep still and dim the room.</li>
+        <li>The leader lights for one slot, then goes dark. The follower sees that, waits the gap, then lights for one slot. Repeat.</li>
+      </ol>
+      <p class="note" style="margin-top:10px">Flashlight control works in Chrome on Android. An iPhone can only record; as follower it captures the leader's light through the finger but cannot light back. The ratio figure is a raw red-to-green comparison, not blood oxygen. This is a research prototype and gives no medical readings.</p>
+    </details>
+  </section>
+</div>
+
+<script>
+(() => {
+'use strict';
+const $ = id => document.getElementById(id);
+const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+
+const cfg = { role:'leader', slotMs:6000, gapMs:1200, settleMs:450, thr:6 };
+const FPS_RESAMPLE = 30;
+
+// ---------- state ----------
+let src = null;            // {kind:'camera'|'sim', stop()}
+let frames = [];           // {t,r,g,b,y,phase}
+let log = [];              // CSV rows
+let phase = 'idle', phaseStart = 0, seg = null, torchOn = false, hasTorch = false;
+let ySm = null, dark = Infinity, onCount = 0, offCount = 0, listenStart = 0;
+let fpsT = [], wakeLock = null, t0 = 0;
+const results = { other:[], self:[] };
+
+// ---------- UI wiring ----------
+function setRole(r){ cfg.role = r; document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.role===r))); }
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { if(src) stopAll(); setRole(b.dataset.role); }));
+function bindRange(id, out, fmt, apply){ const el=$(id); const f=()=>{ $(out).textContent=fmt(+el.value); apply(+el.value); }; el.addEventListener('input', f); f(); }
+bindRange('slot','slotOut',v=>v+' s',v=>cfg.slotMs=v*1000);
+bindRange('gap','gapOut',v=>v.toFixed(1)+' s',v=>cfg.gapMs=v*1000);
+bindRange('thr','thrOut',v=>v+' levels',v=>cfg.thr=v);
+
+$('startBtn').addEventListener('click', startCamera);
+$('stopBtn').addEventListener('click', () => stopAll());
+const DEMO_TEXT = $('demoNote').textContent;
+$('demoBtn').addEventListener('click', () => { stopAll(); setRole('leader'); $('demoNote').textContent = DEMO_TEXT; $('demoNote').hidden = false; startSim(); });
+$('saveBtn').addEventListener('click', saveCsv);
+$('copyBtn').addEventListener('click', copySummary);
+
+// ---------- torch ----------
+let track = null;
+async function setTorch(on){
+  torchOn = on;
+  if (src && src.kind==='sim') { src.torch(on); return; }
+  if (!track || !hasTorch) return;
+  try { await track.applyConstraints({ advanced:[{ torch:on }] }); } catch(e){ /* some phones reject while busy */ }
+}
+
+// ---------- camera ----------
+async function openBackCamera(){
+  const base = { width:{ideal:640}, height:{ideal:480}, frameRate:{ideal:30} };
+  let stream = await navigator.mediaDevices.getUserMedia({ video:{ ...base, facingMode:{ideal:'environment'} }, audio:false });
+  let t = stream.getVideoTracks()[0];
+  if (t.getCapabilities && t.getCapabilities().torch) return stream;
+  // Phones with several rear cameras: look for the one wired to the flashlight
+  const devs = (await navigator.mediaDevices.enumerateDevices()).filter(d => d.kind==='videoinput');
+  for (const d of devs) {
+    if (d.deviceId === t.getSettings().deviceId) continue;
+    if (d.label && /front|user|facetime/i.test(d.label)) continue;
+    try {
+      const s2 = await navigator.mediaDevices.getUserMedia({ video:{ ...base, deviceId:{exact:d.deviceId} }, audio:false });
+      const t2 = s2.getVideoTracks()[0];
+      if (t2.getCapabilities && t2.getCapabilities().torch) { stream.getTracks().forEach(x=>x.stop()); return s2; }
+      s2.getTracks().forEach(x=>x.stop());
+    } catch(e){}
+  }
+  return stream;
+}
+
+async function startCamera(){
+  stopAll();
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { showCamError('This browser has no camera access here.'); return; }
+  let stream;
+  try { stream = await openBackCamera(); }
+  catch(e){ showCamError(e && e.name==='NotAllowedError' ? 'Camera access was refused.' : 'The camera could not be opened ('+(e&&e.name||'error')+').'); return; }
+  track = stream.getVideoTracks()[0];
+  const caps = track.getCapabilities ? track.getCapabilities() : {};
+  hasTorch = !!caps.torch;
+  $('torchChip').textContent = hasTorch ? 'torch ok' : 'no torch';
+  $('torchChip').classList.toggle('warn', !hasTorch);
+  setupExposure(caps);
+  const video = $('video'); video.srcObject = stream; video.hidden = false; $('simPreview').hidden = true;
+  await video.play().catch(()=>{});
+  const cv = document.createElement('canvas'); cv.width = 48; cv.height = 36;
+  const cx = cv.getContext('2d', { willReadFrequently:true });
+  let running = true;
+  const grab = (now) => {
+    if (!running) return;
+    if (video.videoWidth) {
+      cx.drawImage(video, 0, 0, 48, 36);
+      const d = cx.getImageData(12, 9, 24, 18).data;
+      let r=0,g=0,b=0; const n=d.length/4;
+      for (let i=0;i<d.length;i+=4){ r+=d[i]; g+=d[i+1]; b+=d[i+2]; }
+      onSample(performance.now(), r/n, g/n, b/n);
+    }
+    if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(grab); else requestAnimationFrame(grab);
+  };
+  if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(grab); else requestAnimationFrame(grab);
+  src = { kind:'camera', stop(){ running=false; try{ if(hasTorch) track.applyConstraints({advanced:[{torch:false}]}); }catch(e){} stream.getTracks().forEach(t=>t.stop()); video.srcObject=null; } };
+  $('demoNote').hidden = true;
+  begin();
+  try { wakeLock = await navigator.wakeLock?.request('screen'); } catch(e){}
+}
+
+function showCamError(msg){
+  const inFrame = window.top !== window;
+  $('demoNote').hidden = false;
+  $('demoNote').textContent = msg + (inFrame
+    ? ' Camera access needs a secure page (HTTPS or localhost). The simulation is running meanwhile.'
+    : ' Check the browser\'s camera permission for this page. The simulation is running meanwhile.');
+  startSim();
+}
+
+function setupExposure(caps){
+  const el = $('exp');
+  const modes = caps.exposureMode || [];
+  if (modes.includes('manual') && caps.exposureTime) {
+    const {min,max} = caps.exposureTime;
+    const cur = (track.getSettings().exposureTime) || (min+max)/2;
+    // log scale slider
+    const toV = x => Math.round(100*Math.log(x/min)/Math.log(max/min));
+    const toX = v => min*Math.pow(max/min, v/100);
+    el.disabled = false; el.value = toV(cur);
+    const apply = async () => {
+      const x = toX(+el.value);
+      $('expOut').textContent = (x/10).toFixed(1)+' ms';
+      try { await track.applyConstraints({ advanced:[{ exposureMode:'manual', exposureTime:x }] }); $('expChip').textContent='exposure locked'; }
+      catch(e){ $('expChip').textContent='exposure auto'; }
+    };
+    el.oninput = apply; apply();
+    $('expHint').textContent = 'Locked. Lower it if the bounced-back light saturates; raise it if light through the finger is too dim.';
+  } else {
+    el.disabled = true; $('expOut').textContent = 'auto';
+    $('expChip').textContent = 'exposure auto';
+    $('expHint').textContent = 'This camera only offers automatic exposure. Pulse ratios still work, but brightness levels drift.';
+  }
+  try { if ((caps.whiteBalanceMode||[]).includes('manual')) track.applyConstraints({ advanced:[{ whiteBalanceMode:'manual' }] }); } catch(e){}
+  try { if ((caps.focusMode||[]).includes('manual')) track.applyConstraints({ advanced:[{ focusMode:'manual' }] }); } catch(e){}
+}
+
+// ---------- simulation (leader with a virtual follower) ----------
+function startSim(){
+  stopAll(true);
+  hasTorch = true; $('torchChip').textContent='torch (sim)'; $('torchChip').classList.remove('warn');
+  $('expChip').textContent='exposure (sim)';
+  $('video').hidden = true; $('simPreview').hidden = false;
+  if ($('demoNote').textContent.indexOf('Simulated')===0 || !src) $('demoNote').hidden = false;
+  const pc = $('simPreview').getContext('2d');
+  let ownCmd = {on:false,t:0}, other = {on:false,t:0}, followerWaitUntil = null, followerOffAt = null, prevOwn=false;
+  const LAT = 220, hr = 72;
+  const pulse = t => { const ph = ((t/1000)*(hr/60 + 0.03*Math.sin(t/9000)))%1;
+    return Math.exp(-(((ph-.15)/.07)**2)) + .45*Math.exp(-(((ph-.43)/.1)**2)); };
+  const nz = () => (Math.random()-.5)*0.9;
+  const id = setInterval(() => {
+    const t = performance.now();
+    const ownLit = (t - ownCmd.t > LAT) ? ownCmd.on : !ownCmd.on;
+    // virtual follower: waits for leader to go dark, then lights for one slot
+    if (prevOwn && !ownLit) followerWaitUntil = t + 120 + cfg.gapMs;
+    prevOwn = ownLit;
+    if (followerWaitUntil && t >= followerWaitUntil) { other.on = true; followerOffAt = t + cfg.slotMs; followerWaitUntil = null; }
+    if (other.on && t >= followerOffAt) other.on = false;
+    const w = pulse(t), drift = 1 + 0.02*Math.sin(t/7000);
+    let r=3,g=2,b=2;
+    if (ownLit){ r = 205*drift*(1-.012*w); g = 118*drift*(1-.03*w); b = 86*drift*(1-.02*w); }
+    else if (other.on){ r = 74*drift*(1-.026*w); g = 9*(1-.035*w); b = 4; }
+    r+=nz(); g+=nz(); b+=nz();
+    pc.fillStyle = `rgb(${r|0},${g|0},${b|0})`; pc.fillRect(0,0,12,16);
+    onSample(t, r, g, b);
+  }, 33);
+  src = { kind:'sim', torch(on){ ownCmd = {on, t:performance.now()}; }, stop(){ clearInterval(id); } };
+  begin();
+}
+
+// ---------- state machine ----------
+function begin(){
+  frames = []; log = []; results.other = []; results.self = []; seg = null;
+  ySm = null; dark = Infinity; onCount = offCount = 0; t0 = performance.now();
+  $('stopBtn').disabled = false;
+  renderMetrics();
+  const now = performance.now();
+  if (cfg.role === 'follower') enter('listen', now);
+  else enter('self', now);
+}
+function stopAll(silent){
+  if (src) { src.stop(); src = null; }
+  torchOn = false; phase = 'idle'; seg = null;
+  try { wakeLock && wakeLock.release(); } catch(e){} wakeLock = null;
+  $('stopBtn').disabled = true;
+  setPhaseChip();
+}
+function enter(p, t){
+  phase = p; phaseStart = t;
+  if (p === 'self') { setTorch(true); seg = { kind:'self', start:t, frames:[] }; }
+  if (p === 'post') { setTorch(false); }
+  if (p === 'listen') { dark = Infinity; onCount = offCount = 0; listenStart = t; }
+  if (p === 'other') { seg = { kind:'other', start:t, frames:[], dark }; }
+  setPhaseChip();
+}
+function closeSeg(){ if (!seg) return; const r = analyze(seg); if (r) { results[seg.kind].push(r); if (results[seg.kind].length>12) results[seg.kind].shift(); renderMetrics(); } seg = null; }
+
+function onSample(t, r, g, b){
+  const y = 0.299*r + 0.587*g + 0.114*b;
+  ySm = ySm == null ? y : ySm + 0.35*(y - ySm);
+  const f = { t, r, g, b, y, phase };
+  frames.push(f); while (frames.length && t - frames[0].t > 30000) frames.shift();
+  if (log.length < 90000) log.push(f);
+  fpsT.push(t); while (fpsT.length && t - fpsT[0] > 1000) fpsT.shift();
+  if (seg) seg.frames.push(f);
+  $('satChip').hidden = !(r > 250);
+
+  const el = t - phaseStart, role = cfg.role;
+  if (phase === 'self') {
+    if (el >= cfg.slotMs) {
+      closeSeg();
+      if (role === 'solo') enter('self', t); else enter('post', t);
+    }
+  } else if (phase === 'post') {
+    if (el >= cfg.settleMs) enter('listen', t);
+  } else if (phase === 'listen') {
+    dark = Math.min(dark, ySm);
+    if (ySm > dark + cfg.thr) { if (++onCount >= 3) enter('other', t); } else onCount = 0;
+    if (role === 'leader' && t - listenStart > cfg.slotMs + cfg.gapMs + 2500) enter('self', t); // partner silent: keep going
+  } else if (phase === 'other') {
+    if (ySm < dark + cfg.thr/2) { if (++offCount >= 4) { closeSeg(); enter('gap', t); } } else offCount = 0;
+  } else if (phase === 'gap') {
+    if (el >= cfg.gapMs) { if (role === 'leader' || hasTorch) enter('self', t); else enter('listen', t); }
+  }
+}
+
+function setPhaseChip(){
+  const c = $('phaseChip');
+  const names = { idle:'idle', self:'own light on', post:'switching off', listen:'waiting for other light', other:'other light seen', gap:'dark gap' };
+  c.textContent = names[phase] || phase;
+  c.className = 'chip' + (phase==='self' ? ' phase-self' : phase==='other' ? ' phase-other' : '');
+}
+
+// ---------- analysis ----------
+function movAvg(x, w){ const n=x.length, o=new Float64Array(n), h=Math.floor(w/2); let s=0, a=0, bIdx=0;
+  const cs = new Float64Array(n+1); for(let i=0;i<n;i++) cs[i+1]=cs[i]+x[i];
+  for(let i=0;i<n;i++){ const lo=Math.max(0,i-h), hi=Math.min(n,i+h+1); o[i]=(cs[hi]-cs[lo])/(hi-lo); } return o; }
+function pct(a,p){ const s=Array.from(a).sort((x,y)=>x-y); return s[Math.min(s.length-1,Math.max(0,Math.round(p*(s.length-1))))]; }
+function resample(fr, key, t0, n){ const o=new Float64Array(n); let j=0;
+  for(let i=0;i<n;i++){ const tt=t0+i*1000/FPS_RESAMPLE; while(j<fr.length-2 && fr[j+1].t<tt) j++;
+    const a=fr[j], b=fr[Math.min(j+1,fr.length-1)]; const u = b.t===a.t?0:Math.min(1,Math.max(0,(tt-a.t)/(b.t-a.t))); o[i]=a[key]+(b[key]-a[key])*u; } return o; }
+function analyze(s){
+  let fr = s.frames.filter(f => f.t - s.start >= cfg.settleMs);
+  if (s.kind === 'other') fr = fr.filter(f => f.y > s.dark + cfg.thr);
+  if (fr.length < 20) return null;
+  const tStart = fr[0].t, dur = fr[fr.length-1].t - tStart;
+  if (dur < 2500) return null;
+  const n = Math.floor(dur/1000*FPS_RESAMPLE);
+  const trim = Math.round(0.8*FPS_RESAMPLE);
+  const out = { kind:s.kind, start:tStart - t0, dur, dc:{}, acdc:{}, wave:{} };
+  let best = { c:-1, bpm:null };
+  for (const k of ['r','g','b']) {
+    const x = resample(fr, k, tStart, n);
+    const lp = movAvg(x, Math.round(.12*FPS_RESAMPLE)), base = movAvg(x, Math.round(1.6*FPS_RESAMPLE));
+    const p = []; for (let i=trim;i<n-trim;i++) p.push(-(lp[i]-base[i]));
+    let dc=0; for (const v of x) dc+=v; dc/=n;
+    out.dc[k]=dc; const ac = pct(p,.95)-pct(p,.05); out.acdc[k] = dc>1 ? 100*ac/dc : null;
+    out.wave[k] = p;
+    if (k!=='b' && p.length > FPS_RESAMPLE*1.6) { const r = autoHR(p); if (r.c > best.c) best = r; }
+  }
+  out.bpm = best.c > 0.3 ? best.bpm : null; out.quality = Math.max(0,best.c);
+  out.ratio = (out.acdc.r && out.acdc.g) ? out.acdc.r/out.acdc.g : null;
+  return out;
+}
+function autoHR(p){
+  const n=p.length; let m=0; for(const v of p) m+=v; m/=n;
+  const q=p.map(v=>v-m); let e=0; for(const v of q) e+=v*v; if(!e) return {c:-1};
+  const lo=Math.round(FPS_RESAMPLE*60/180), hi=Math.min(n-10, Math.round(FPS_RESAMPLE*60/40));
+  const cs=[]; for(let L=lo;L<=hi;L++){ let s=0; for(let i=0;i+L<n;i++) s+=q[i]*q[i+L]; cs.push(s/e*n/(n-L)); }
+  let bi=-1, bc=-1; for(let i=1;i<cs.length-1;i++) if(cs[i]>cs[i-1]&&cs[i]>=cs[i+1]&&cs[i]>bc){bc=cs[i];bi=i;}
+  if (bi<0) return {c:-1};
+  return { c:bc, bpm: 60*FPS_RESAMPLE/(lo+bi) };
+}
+const median = a => { const s=a.filter(v=>v!=null).sort((x,y)=>x-y); return s.length? s[Math.floor(s.length/2)] : null; };
+
+// ---------- rendering ----------
+function renderMetrics(){
+  for (const [kind, id] of [['other','t-metrics'],['self','r-metrics']]) {
+    const rs = results[kind], last = rs[rs.length-1];
+    const f = (v,d=2) => v==null || !isFinite(v) ? '—' : v.toFixed(d);
+    const m = [
+      ['Pulse', f(median(rs.map(r=>r.bpm)),0), 'bpm'],
+      ['Red AC/DC', f(last && last.acdc.r), '%'],
+      ['Green AC/DC', f(last && last.acdc.g), '%'],
+      ['Red / green', f(last && last.ratio), ''],
+      ['Red level', f(last && last.dc.r,0), '/255'],
+      ['Slots', String(rs.length), kind==='other' && cfg.role==='solo' ? 'n/a' : ''],
+    ];
+    $(id).innerHTML = m.map(([k,v,u]) => `<div class="metric"><div class="v">${v}<small>${u}</small></div><div class="k">${k}</div></div>`).join('');
+  }
+}
+function sizeCanvas(c){ const dpr=window.devicePixelRatio||1, w=c.clientWidth, h=+c.getAttribute('height');
+  if (c.width!==Math.round(w*dpr)) { c.width=Math.round(w*dpr); c.height=Math.round(h*dpr); }
+  const x=c.getContext('2d'); x.setTransform(dpr,0,0,dpr,0,0); return {x,w,h}; }
+function drawTimeline(){
+  const c=$('timeline'), {x,w,h}=sizeCanvas(c); x.clearRect(0,0,w,h);
+  const now = frames.length? frames[frames.length-1].t : performance.now(), span=30000;
+  const X = t => w - (now - t)/span*w;
+  const colSelf=cssVar('--refl-tint'), colOther=cssVar('--trans-tint');
+  // phase bands
+  let i=0; while(i<frames.length){ const p=frames[i].phase; let j=i; while(j<frames.length && frames[j].phase===p) j++;
+    if (p==='self'||p==='other'){ x.fillStyle = p==='self'?colSelf:colOther; const a=X(frames[i].t), b=X(frames[j-1].t); x.fillRect(a,0,Math.max(1,b-a),h-14); } i=j; }
+  // grid + axis
+  x.strokeStyle=cssVar('--line'); x.lineWidth=1; x.fillStyle=cssVar('--muted'); x.font='10px '+cssVar('--f-data');
+  for (let s=0;s<=30;s+=10){ const px=Math.round(w - s/30*w)+.5; x.beginPath(); x.moveTo(px,0); x.lineTo(px,h-14); x.stroke();
+    x.textAlign = s===0?'right':s===30?'left':'center'; x.fillText(s===0?'now':'−'+s+' s', px, h-2); }
+  if (frames.length<2) return;
+  let lo=Infinity, hi=-Infinity; for(const f of frames){ lo=Math.min(lo,f.y); hi=Math.max(hi,f.y); }
+  const pad=(hi-lo)*.08+1; lo-=pad; hi+=pad; const Y = v => (h-16) - (v-lo)/(hi-lo)*(h-20);
+  x.strokeStyle=cssVar('--ink'); x.lineWidth=1.25; x.beginPath();
+  frames.forEach((f,k)=>{ const px=X(f.t), py=Y(f.y); k?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke();
+  x.fillStyle=cssVar('--muted'); x.textAlign='left'; x.fillText(Math.round(hi-pad)+'', 4, 11);
+}
+function drawWave(id, kind){
+  const c=$(id), {x,w,h}=sizeCanvas(c); x.clearRect(0,0,w,h);
+  const rs=results[kind], last=rs[rs.length-1];
+  x.strokeStyle=cssVar('--line'); x.lineWidth=1; x.beginPath(); x.moveTo(0,h/2+.5); x.lineTo(w,h/2+.5); x.stroke();
+  x.fillStyle=cssVar('--muted'); x.font='11px '+cssVar('--f-body');
+  if (!last){ x.textAlign='center'; x.fillText(kind==='other' && cfg.role==='solo' ? 'Solo mode measures bounced-back light only' : 'Waiting for the first complete slot', w/2, h/2-8); return; }
+  const main = kind==='other' ? cssVar('--trans') : cssVar('--refl');
+  for (const [k,col,lw,alpha] of [['g',cssVar('--muted'),1,.8],['r',main,2,1]]) {
+    const p=last.wave[k]; if(!p||!p.length) continue;
+    let m=0; for(const v of p) m=Math.max(m,Math.abs(v)); m=m||1;
+    x.globalAlpha=alpha; x.strokeStyle=col; x.lineWidth=lw; x.beginPath();
+    p.forEach((v,i)=>{ const px=i/(p.length-1)*w, py=h/2 - v/m*(h/2-8); i?x.lineTo(px,py):x.moveTo(px,py); }); x.stroke(); x.globalAlpha=1;
+  }
+  x.textAlign='left'; x.fillText('red', 4, 12); x.fillText('green', 34, 12);
+  x.textAlign='right'; x.fillText((last.dur/1000).toFixed(1)+' s slot · quality '+last.quality.toFixed(2), w-4, h-4);
+}
+function loop(){
+  drawTimeline(); drawWave('t-wave','other'); drawWave('r-wave','self');
+  $('fpsChip').textContent = (src ? fpsT.length : '—') + ' fps';
+  requestAnimationFrame(loop);
+}
+
+// ---------- export ----------
+function csv(){
+  const head = 't_ms,phase,r,g,b,luma\n';
+  const rows = log.map(f => [(f.t-t0).toFixed(1), f.phase, f.r.toFixed(2), f.g.toFixed(2), f.b.toFixed(2), f.y.toFixed(2)].join(','));
+  return '# role='+cfg.role+' slot_ms='+cfg.slotMs+' gap_ms='+cfg.gapMs+'\n'+head+rows.join('\n');
+}
+function summary(){
+  const lines=['kind,start_ms,dur_ms,bpm,acdc_r,acdc_g,acdc_b,ratio_rg,dc_r,dc_g,dc_b,quality'];
+  for (const k of ['other','self']) for (const r of results[k]) lines.push([k==='other'?'through':'bounced', r.start.toFixed(0), r.dur.toFixed(0), r.bpm?r.bpm.toFixed(1):'', ...['r','g','b'].map(c=>r.acdc[c]!=null?r.acdc[c].toFixed(3):''), r.ratio?r.ratio.toFixed(3):'', ...['r','g','b'].map(c=>r.dc[c].toFixed(1)), r.quality.toFixed(2)].join(','));
+  return lines.join('\n');
+}
+function saveCsv(){
+  if (!log.length) { $('saveMsg').textContent='Nothing recorded yet.'; return; }
+  try {
+    const blob = new Blob([csv()], {type:'text/csv'}); const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='fingerlight-'+cfg.role+'-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.csv';
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href), 4000);
+    $('saveMsg').textContent = window.top!==window ? 'Saving is blocked in this preview. Open the page on its own to save.' : 'Saved '+log.length+' frames.';
+  } catch(e){ $('saveMsg').textContent='Saving failed here. Use Copy slot summary instead.'; }
+}
+function copySummary(){
+  const text = summary();
+  navigator.clipboard.writeText(text).then(()=>{ $('saveMsg').textContent='Copied '+(text.split('\n').length-1)+' slots.'; })
+    .catch(()=>{ $('saveMsg').textContent='Copy was refused by this browser.'; });
+}
+
+// ---------- boot ----------
+renderMetrics(); setPhaseChip(); requestAnimationFrame(loop);
+startSim();
+})();
+</script>
+
+</body>
+</html>
