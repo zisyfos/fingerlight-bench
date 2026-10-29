@@ -17,6 +17,7 @@
   --bg:#ECEFF3; --surface:#FFFFFF; --ink:#161A20; --muted:#5A6370; --line:#D3D9E0;
   --accent:#24508F; --trans:#B3122B; --refl:#B86E06; --dark:#7C8694; --warn:#A33A00;
   --trans-tint:rgba(179,18,43,.12); --refl-tint:rgba(184,110,6,.14);
+  --ok:#1E7A42; --caution:#A86F00; --bad:#C2271B;
   --f-display:"Chivo",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-body:"Chivo",system-ui,-apple-system,"Segoe UI",sans-serif;
   --f-data:"Chivo Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
@@ -24,11 +25,13 @@
 @media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
   --bg:#0E1217; --surface:#161B22; --ink:#E5E9EF; --muted:#8C96A4; --line:#29303A;
   --accent:#86A9FF; --trans:#FF5A6E; --refl:#F2AA3E; --dark:#6B7480; --warn:#FF8A4C;
-  --trans-tint:rgba(255,90,110,.14); --refl-tint:rgba(242,170,62,.14); color-scheme:dark}}
+  --trans-tint:rgba(255,90,110,.14); --refl-tint:rgba(242,170,62,.14);
+  --ok:#4CC27A; --caution:#E7B23A; --bad:#FF6B5E; color-scheme:dark}}
 :root[data-theme="dark"]{
   --bg:#0E1217; --surface:#161B22; --ink:#E5E9EF; --muted:#8C96A4; --line:#29303A;
   --accent:#86A9FF; --trans:#FF5A6E; --refl:#F2AA3E; --dark:#6B7480; --warn:#FF8A4C;
-  --trans-tint:rgba(255,90,110,.14); --refl-tint:rgba(242,170,62,.14); color-scheme:dark}
+  --trans-tint:rgba(255,90,110,.14); --refl-tint:rgba(242,170,62,.14);
+  --ok:#4CC27A; --caution:#E7B23A; --bad:#FF6B5E; color-scheme:dark}
 body{background:var(--bg);color:var(--ink);font-family:var(--f-body);line-height:1.45}
 .wrap{max-width:620px;margin:0 auto;padding-block:18px 40px;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));
@@ -76,6 +79,21 @@ canvas.plot{width:100%;display:block;min-width:0}
 .setting .hint{grid-column:1/-1;font-size:.72rem;color:var(--muted)}
 .steps{margin:0;padding-left:1.2em;font-size:.88rem;display:flex;flex-direction:column;gap:6px;max-width:62ch}
 .note{font-size:.8rem;color:var(--muted);max-width:62ch;margin:0}
+.check{display:grid;grid-template-columns:auto minmax(0,1fr) minmax(0,1fr);gap:9px 12px;align-items:center;font-size:.86rem}
+.check .h{font-size:.7rem;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);display:flex;align-items:baseline;gap:6px;min-width:0}
+.check .rl{font-size:.8rem;color:var(--muted)}
+.cell{display:flex;align-items:center;gap:7px;min-width:0;font-variant-numeric:tabular-nums}
+.cell span{overflow-wrap:anywhere}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;background:var(--line)}
+.dot.ok{background:var(--ok)} .dot.warn{background:var(--caution)} .dot.bad{background:var(--bad)}
+.dot.idle{background:transparent;border:1.5px solid var(--line);box-sizing:border-box}
+.livetag{font-family:var(--f-data);font-size:.62rem;letter-spacing:0;text-transform:none;color:var(--accent);border:1px solid var(--accent);border-radius:99px;padding:0 6px}
+.advice{font-size:.88rem;margin:0;max-width:62ch;padding:9px 11px;border-radius:8px;background:var(--bg)}
+.advice.bad{box-shadow:inset 3px 0 0 var(--bad)} .advice.warn{box-shadow:inset 3px 0 0 var(--caution)} .advice.ok{box-shadow:inset 3px 0 0 var(--ok)}
+.seg.two{grid-template-columns:repeat(2,1fr);grid-column:1/-1;margin-top:4px}
+.seg button:disabled{opacity:.4;cursor:default}
+.setting .lbl{font-size:.85rem}
+.camreport{grid-column:1/-1;font-family:var(--f-data);font-size:.74rem;color:var(--muted);margin:0;overflow-wrap:anywhere}
 details summary{cursor:pointer;font-family:var(--f-display);font-weight:600}
 @media (min-width:560px){.settings{grid-template-columns:1fr 1fr}.bench{grid-template-columns:120px 1fr}.preview{width:120px}}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
@@ -107,6 +125,25 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:600}
       <span class="chip" id="satChip" hidden>saturated</span>
     </div>
     <p class="demo" id="demoNote">Simulated signals. A leader phone is shown with a virtual follower answering it, and a synthetic pulse at about 72 bpm. Press Start camera to use this phone's camera.</p>
+  </section>
+
+  <section class="panel" aria-labelledby="chk-h">
+    <div class="card-head"><h2 id="chk-h">Signal check</h2><span class="path">updates during each light slot</span></div>
+    <div class="check" role="table" aria-label="Signal check per light path">
+      <span class="h" role="columnheader"></span>
+      <span class="h" role="columnheader">Through <span class="livetag" id="live-other" hidden>live</span></span>
+      <span class="h" role="columnheader">Bounced <span class="livetag" id="live-self" hidden>live</span></span>
+      <span class="rl" role="rowheader">Light level</span>
+      <span class="cell" id="c-other-level"><i class="dot idle"></i><span>—</span></span>
+      <span class="cell" id="c-self-level"><i class="dot idle"></i><span>—</span></span>
+      <span class="rl" role="rowheader">Colour</span>
+      <span class="cell" id="c-other-colour"><i class="dot idle"></i><span>—</span></span>
+      <span class="cell" id="c-self-colour"><i class="dot idle"></i><span>—</span></span>
+      <span class="rl" role="rowheader">Pulse</span>
+      <span class="cell" id="c-other-pulse"><i class="dot idle"></i><span>—</span></span>
+      <span class="cell" id="c-self-pulse"><i class="dot idle"></i><span>—</span></span>
+    </div>
+    <p class="advice" id="advice">Checks appear as soon as a light slot starts.</p>
   </section>
 
   <section class="panel" aria-labelledby="live-h">
@@ -147,8 +184,17 @@ details summary{cursor:pointer;font-family:var(--f-display);font-weight:600}
         <input type="range" id="gap" min="0.6" max="2.5" step="0.1" value="1.2"><span class="hint">Lets the flashlight switch off fully. Raise it if the phones lose sync.</span></div>
       <div class="setting"><label for="thr">Light detection threshold</label><output id="thrOut"></output>
         <input type="range" id="thr" min="2" max="30" step="1" value="6"><span class="hint">Brightness rise, in camera levels, that counts as the other phone's light.</span></div>
-      <div class="setting"><label for="exp">Exposure time</label><output id="expOut">auto</output>
-        <input type="range" id="exp" min="0" max="100" step="1" value="50" disabled><span class="hint" id="expHint">Becomes available when the camera supports manual exposure.</span></div>
+      <div class="setting"><span class="lbl" id="expModeLabel">Exposure</span><output id="expOut">auto</output>
+        <div class="seg two" role="group" aria-labelledby="expModeLabel">
+          <button id="expAuto" data-mode="auto" aria-pressed="true">Auto</button>
+          <button id="expLock" data-mode="locked" aria-pressed="false" disabled>Locked</button>
+        </div>
+        <span class="hint" id="expHint">Locked keeps brightness comparable between slots. It becomes available when the camera supports manual exposure.</span></div>
+      <div class="setting"><label for="expOwn">Exposure, own light</label><output id="expOwnOut">—</output>
+        <input type="range" id="expOwn" min="0" max="100" step="1" value="50" disabled><span class="hint">Used while this phone's flashlight is on (bounced back).</span></div>
+      <div class="setting"><label for="expOther">Exposure, other phone's light</label><output id="expOtherOut">—</output>
+        <input type="range" id="expOther" min="0" max="100" step="1" value="50" disabled><span class="hint">Used while this phone's flashlight is off (through the finger).</span></div>
+      <p class="camreport" id="camReport">Camera: not started.</p>
     </div>
   </section>
 
@@ -196,8 +242,8 @@ let fpsT = [], wakeLock = null, t0 = 0;
 const results = { other:[], self:[] };
 
 // ---------- UI wiring ----------
-function setRole(r){ cfg.role = r; document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.role===r))); }
-document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => { if(src) stopAll(); setRole(b.dataset.role); }));
+function setRole(r){ cfg.role = r; document.querySelectorAll('.seg button[data-role]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.role===r))); if (typeof renderCheck === 'function') try { renderCheck(); } catch(e){} }
+document.querySelectorAll('.seg button[data-role]').forEach(b => b.addEventListener('click', () => { if(src) stopAll(); setRole(b.dataset.role); }));
 function bindRange(id, out, fmt, apply){ const el=$(id); const f=()=>{ $(out).textContent=fmt(+el.value); apply(+el.value); }; el.addEventListener('input', f); f(); }
 bindRange('slot','slotOut',v=>v+' s',v=>cfg.slotMs=v*1000);
 bindRange('gap','gapOut',v=>v.toFixed(1)+' s',v=>cfg.gapMs=v*1000);
@@ -210,13 +256,76 @@ $('demoBtn').addEventListener('click', () => { stopAll(); setRole('leader'); $('
 $('saveBtn').addEventListener('click', saveCsv);
 $('copyBtn').addEventListener('click', copySummary);
 
-// ---------- torch ----------
+// ---------- camera settings ----------
+// applyConstraints() replaces the previous constraint set, so every change sends
+// the complete state: flashlight, exposure, white balance and focus together.
 let track = null;
-async function setTorch(on){
-  torchOn = on;
+const cam = { torch:false, mode:'auto', own:null, other:null, caps:{}, min:1, max:1, err:null };
+let camBusy = false, camDirty = false;
+const canManual = () => (cam.caps.exposureMode||[]).includes('manual') && !!cam.caps.exposureTime;
+const capHas = (k,v) => (cam.caps[k]||[]).includes(v);
+const expToV = x => Math.round(100*Math.log(x/cam.min)/Math.log(cam.max/cam.min));
+const expToX = v => cam.min*Math.pow(cam.max/cam.min, v/100);
+const fmtExp = x => x==null ? '—' : (x/10 >= 10 ? (x/10).toFixed(0) : (x/10).toFixed(1)) + ' ms'; // Chrome reports 100 µs units
+function camSets(){
+  // Separate entries: a setting the camera rejects is skipped without dropping the others.
+  const sets = [];
+  if (hasTorch) sets.push({ torch: cam.torch });
+  if (cam.mode === 'locked' && canManual()) {
+    sets.push({ exposureMode:'manual', exposureTime: cam.torch ? cam.own : cam.other });
+    if (capHas('whiteBalanceMode','manual')) sets.push({ whiteBalanceMode:'manual' });
+    if (capHas('focusMode','manual')) sets.push({ focusMode:'manual' });
+  } else {
+    if (capHas('exposureMode','continuous')) sets.push({ exposureMode:'continuous' });
+    if (capHas('whiteBalanceMode','continuous')) sets.push({ whiteBalanceMode:'continuous' });
+    if (capHas('focusMode','continuous')) sets.push({ focusMode:'continuous' });
+  }
+  return sets;
+}
+async function applyCam(){
+  camDirty = true;
+  if (camBusy || !track) return;
+  camBusy = true;
+  while (camDirty && track) {
+    camDirty = false;
+    const sets = camSets();
+    if (!sets.length) break;
+    try { await track.applyConstraints({ advanced: sets }); cam.err = null; }
+    catch(e){ cam.err = (e && (e.name || e.message)) || 'error'; }
+  }
+  camBusy = false;
+  reportCam();
+}
+function reportCam(){
+  if (!track) return;
+  const st = track.getSettings ? track.getSettings() : {};
+  const parts = [];
+  if ('torch' in st) parts.push('flashlight ' + (st.torch ? 'on' : 'off'));
+  if (st.exposureMode) parts.push('exposure ' + st.exposureMode + (st.exposureTime ? ' ' + fmtExp(st.exposureTime) : ''));
+  if (st.whiteBalanceMode) parts.push('white balance ' + st.whiteBalanceMode);
+  if (st.width) parts.push(st.width + '×' + st.height);
+  $('camReport').textContent = 'Camera reports: ' + (parts.join(' · ') || 'no settings') + (cam.err ? ' · last change refused (' + cam.err + ')' : '');
+  $('expChip').textContent = st.exposureMode === 'manual' ? 'exposure locked' : st.exposureMode ? 'exposure auto' : 'exposure ?';
+}
+function setExpMode(m){
+  if (m === 'locked' && !canManual()) m = 'auto';
+  cam.mode = m;
+  $('expAuto').setAttribute('aria-pressed', String(m==='auto'));
+  $('expLock').setAttribute('aria-pressed', String(m==='locked'));
+  $('expLock').disabled = !canManual();
+  $('expOwn').disabled = $('expOther').disabled = !(m==='locked');
+  $('expOut').textContent = m;
+  applyCam();
+}
+$('expAuto').addEventListener('click', () => setExpMode('auto'));
+$('expLock').addEventListener('click', () => setExpMode('locked'));
+$('expOwn').addEventListener('input', e => { cam.own = expToX(+e.target.value); $('expOwnOut').textContent = fmtExp(cam.own); applyCam(); });
+$('expOther').addEventListener('input', e => { cam.other = expToX(+e.target.value); $('expOtherOut').textContent = fmtExp(cam.other); applyCam(); });
+
+function setTorch(on){
+  torchOn = on; cam.torch = on;
   if (src && src.kind==='sim') { src.torch(on); return; }
-  if (!track || !hasTorch) return;
-  try { await track.applyConstraints({ advanced:[{ torch:on }] }); } catch(e){ /* some phones reject while busy */ }
+  applyCam();
 }
 
 // ---------- camera ----------
@@ -247,6 +356,7 @@ async function startCamera(){
   try { stream = await openBackCamera(); }
   catch(e){ showCamError(e && e.name==='NotAllowedError' ? 'Camera access was refused.' : 'The camera could not be opened ('+(e&&e.name||'error')+').'); return; }
   track = stream.getVideoTracks()[0];
+  cam.label = (track.label || 'camera').replace(/[,\n]/g,' ');
   const caps = track.getCapabilities ? track.getCapabilities() : {};
   hasTorch = !!caps.torch;
   $('torchChip').textContent = hasTorch ? 'torch ok' : 'no torch';
@@ -269,7 +379,9 @@ async function startCamera(){
     if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(grab); else requestAnimationFrame(grab);
   };
   if (video.requestVideoFrameCallback) video.requestVideoFrameCallback(grab); else requestAnimationFrame(grab);
-  src = { kind:'camera', stop(){ running=false; try{ if(hasTorch) track.applyConstraints({advanced:[{torch:false}]}); }catch(e){} stream.getTracks().forEach(t=>t.stop()); video.srcObject=null; } };
+  src = { kind:'camera', stop(){ running=false; const tr = track; track = null; cam.torch = false;
+    try{ if(hasTorch) tr.applyConstraints({advanced:[{torch:false}]}).catch(()=>{}); }catch(e){}
+    stream.getTracks().forEach(t=>t.stop()); video.srcObject=null; $('camReport').textContent = 'Camera: stopped.'; } };
   $('demoNote').hidden = true;
   begin();
   try { wakeLock = await navigator.wakeLock?.request('screen'); } catch(e){}
@@ -285,37 +397,28 @@ function showCamError(msg){
 }
 
 function setupExposure(caps){
-  const el = $('exp');
-  const modes = caps.exposureMode || [];
-  if (modes.includes('manual') && caps.exposureTime) {
-    const {min,max} = caps.exposureTime;
-    const cur = (track.getSettings().exposureTime) || (min+max)/2;
-    // log scale slider
-    const toV = x => Math.round(100*Math.log(x/min)/Math.log(max/min));
-    const toX = v => min*Math.pow(max/min, v/100);
-    el.disabled = false; el.value = toV(cur);
-    const apply = async () => {
-      const x = toX(+el.value);
-      $('expOut').textContent = (x/10).toFixed(1)+' ms';
-      try { await track.applyConstraints({ advanced:[{ exposureMode:'manual', exposureTime:x }] }); $('expChip').textContent='exposure locked'; }
-      catch(e){ $('expChip').textContent='exposure auto'; }
-    };
-    el.oninput = apply; apply();
-    $('expHint').textContent = 'Locked. Lower it if the bounced-back light saturates; raise it if light through the finger is too dim.';
+  cam.caps = caps || {};
+  if (canManual()) {
+    cam.min = Math.max(caps.exposureTime.min || 1, 0.1); cam.max = Math.max(caps.exposureTime.max, cam.min*2);
+    const clampX = x => Math.min(cam.max, Math.max(cam.min, x));
+    const cur = clampX((track.getSettings && track.getSettings().exposureTime) || Math.sqrt(cam.min*cam.max));
+    cam.own = cam.own == null ? cur : clampX(cam.own);
+    cam.other = cam.other == null ? cur : clampX(cam.other);
+    $('expOwn').value = expToV(cam.own); $('expOther').value = expToV(cam.other);
+    $('expOwnOut').textContent = fmtExp(cam.own); $('expOtherOut').textContent = fmtExp(cam.other);
+    $('expHint').textContent = 'Locked keeps brightness comparable between slots, with its own setting for each light path. If a path reads black, try Auto.';
   } else {
-    el.disabled = true; $('expOut').textContent = 'auto';
-    $('expChip').textContent = 'exposure auto';
-    $('expHint').textContent = 'This camera only offers automatic exposure. Pulse ratios still work, but brightness levels drift.';
+    $('expOwnOut').textContent = $('expOtherOut').textContent = '—';
+    $('expHint').textContent = 'This camera only offers automatic exposure. Pulse readings still work, but brightness levels drift.';
   }
-  try { if ((caps.whiteBalanceMode||[]).includes('manual')) track.applyConstraints({ advanced:[{ whiteBalanceMode:'manual' }] }); } catch(e){}
-  try { if ((caps.focusMode||[]).includes('manual')) track.applyConstraints({ advanced:[{ focusMode:'manual' }] }); } catch(e){}
+  setExpMode(cam.mode);
 }
 
 // ---------- simulation (leader with a virtual follower) ----------
 function startSim(){
   stopAll(true);
   hasTorch = true; $('torchChip').textContent='torch (sim)'; $('torchChip').classList.remove('warn');
-  $('expChip').textContent='exposure (sim)';
+  $('expChip').textContent='exposure (sim)'; $('camReport').textContent = 'Camera: simulated.';
   $('video').hidden = true; $('simPreview').hidden = false;
   if ($('demoNote').textContent.indexOf('Simulated')===0 || !src) $('demoNote').hidden = false;
   const pc = $('simPreview').getContext('2d');
@@ -334,8 +437,8 @@ function startSim(){
     if (other.on && t >= followerOffAt) other.on = false;
     const w = pulse(t), drift = 1 + 0.02*Math.sin(t/7000);
     let r=3,g=2,b=2;
-    if (ownLit){ r = 205*drift*(1-.012*w); g = 118*drift*(1-.03*w); b = 86*drift*(1-.02*w); }
-    else if (other.on){ r = 74*drift*(1-.026*w); g = 9*(1-.035*w); b = 4; }
+    if (ownLit){ r = 150*drift*(1-.018*w); g = 11*drift*(1-.03*w); b = 7*drift; }
+    else if (other.on){ r = 74*drift*(1-.026*w); g = 3*(1-.035*w); b = 2; }
     r+=nz(); g+=nz(); b+=nz();
     pc.fillStyle = `rgb(${r|0},${g|0},${b|0})`; pc.fillRect(0,0,12,16);
     onSample(t, r, g, b);
@@ -346,7 +449,7 @@ function startSim(){
 
 // ---------- state machine ----------
 function begin(){
-  frames = []; log = []; results.other = []; results.self = []; seg = null;
+  frames = []; log = []; results.other = []; results.self = []; seg = null; check.other = check.self = null; renderCheck();
   ySm = null; dark = Infinity; onCount = offCount = 0; t0 = performance.now();
   $('stopBtn').disabled = false;
   renderMetrics();
@@ -369,7 +472,7 @@ function enter(p, t){
   if (p === 'other') { seg = { kind:'other', start:t, frames:[], dark }; }
   setPhaseChip();
 }
-function closeSeg(){ if (!seg) return; const r = analyze(seg); if (r) { results[seg.kind].push(r); if (results[seg.kind].length>12) results[seg.kind].shift(); renderMetrics(); } seg = null; }
+function closeSeg(){ if (!seg) return; if (check[seg.kind]) { check[seg.kind].live = false; renderCheck(); } const r = analyze(seg); if (r) { results[seg.kind].push(r); if (results[seg.kind].length>12) results[seg.kind].shift(); renderMetrics(); } seg = null; }
 
 function onSample(t, r, g, b){
   const y = 0.299*r + 0.587*g + 0.114*b;
@@ -380,6 +483,7 @@ function onSample(t, r, g, b){
   fpsT.push(t); while (fpsT.length && t - fpsT[0] > 1000) fpsT.shift();
   if (seg) seg.frames.push(f);
   $('satChip').hidden = !(r > 250);
+  liveCheck(t);
 
   const el = t - phaseStart, role = cfg.role;
   if (phase === 'self') {
@@ -449,6 +553,77 @@ function autoHR(p){
 }
 const median = a => { const s=a.filter(v=>v!=null).sort((x,y)=>x-y); return s.length? s[Math.floor(s.length/2)] : null; };
 
+// ---------- live signal check ----------
+const check = { other:null, self:null };
+let lastCheckT = 0;
+function liveCheck(t){
+  if (t - lastCheckT < 400 || !seg) return;
+  lastCheckT = t;
+  const kind = seg.kind;
+  let fr = seg.frames.filter(f => f.t - seg.start >= cfg.settleMs && t - f.t <= 5000);
+  if (kind === 'other') fr = fr.filter(f => f.y > seg.dark + cfg.thr);
+  if (fr.length < 8) return;
+  let r=0, g=0, b=0, mx=0;
+  for (const f of fr){ r+=f.r; g+=f.g; b+=f.b; mx = Math.max(mx, f.r, f.g, f.b); }
+  r/=fr.length; g/=fr.length; b/=fr.length;
+  const c = { live:true, r, g, b };
+  c.level = mx < 4 ? ['bad','Black'] : mx > 248 ? ['bad','Clipped'] : r < 20 ? ['warn','Dim'] : ['ok','Good · '+Math.round(r)];
+  if (r < 8) c.colour = ['idle','—'];
+  else {
+    const k = Math.max(g, b) / r, lim = kind === 'other' ? [.15, .35] : [.3, .6];
+    c.k = k; c.colour = k > lim[1] ? ['bad','Leaking'] : k > lim[0] ? ['warn','Some leak'] : ['ok','Red only'];
+  }
+  const span = fr[fr.length-1].t - fr[0].t;
+  if (r < 4) c.pulse = ['idle','—'];
+  else if (span < 3000) c.pulse = ['idle','Measuring'];
+  else {
+    const n = Math.floor(span/1000*FPS_RESAMPLE), x = resample(fr, 'r', fr[0].t, n);
+    const lp = movAvg(x, Math.round(.12*FPS_RESAMPLE)), base = movAvg(x, Math.round(1.6*FPS_RESAMPLE));
+    const trim = Math.round(.5*FPS_RESAMPLE), pv = [];
+    for (let i=trim; i<n-trim; i++) pv.push(-(lp[i]-base[i]));
+    const acdc = 100*(pct(pv,.95)-pct(pv,.05))/r;
+    const hr = pv.length > FPS_RESAMPLE*1.6 ? autoHR(pv) : { c:-1 };
+    c.acdc = acdc;
+    c.pulse = acdc > 15 ? ['bad','Movement'] : (hr.c >= .5 && acdc >= .2) ? ['ok', Math.round(hr.bpm)+' bpm'] : hr.c >= .3 ? ['warn','Weak'] : ['warn','Unclear'];
+  }
+  check[kind] = c;
+  renderCheck();
+}
+function setCell(id, v){
+  const el = $(id); if (!el) return;
+  const [cls, txt] = v || ['idle','—'];
+  el.firstElementChild.className = 'dot ' + cls; el.lastElementChild.textContent = txt;
+}
+function renderCheck(){
+  const solo = cfg.role === 'solo';
+  for (const kind of ['other','self']) {
+    const c = check[kind];
+    const na = kind === 'other' && solo ? ['idle','Not in Solo'] : null;
+    setCell('c-'+kind+'-level', na || (c && c.level));
+    setCell('c-'+kind+'-colour', na ? ['idle',''] : c && c.colour);
+    setCell('c-'+kind+'-pulse', na ? ['idle',''] : c && c.pulse);
+    $('live-'+kind).hidden = !(c && c.live);
+  }
+  const [cls, msg] = adviceFor();
+  const a = $('advice'); a.textContent = msg; a.className = 'advice ' + cls;
+}
+function adviceFor(){
+  const o = check.other, s = check.self, locked = cam.mode === 'locked';
+  const is = (c, row, txt) => c && c[row] && c[row][1].startsWith(txt);
+  if (is(s,'level','Black')) return ['bad', 'This camera sees nothing while its own flashlight is on. Switch exposure to Auto. If it stays black, the flashlight is not reaching the lens through the finger: cover both with the fingertip pad.'];
+  for (const [c, name, key] of [[o,'light through the finger','other'],[s,'bounced-back light','own']])
+    if (is(c,'level','Clipped')) return ['bad', 'The '+name+' is too bright and the camera is clipping. ' + (locked ? 'Lower "Exposure, '+(key==='own'?'own light':'other phone\'s light')+'".' : 'Switch exposure to Locked and lower it.')];
+  if (is(o,'colour','Leaking')) return ['bad', 'Light is reaching the lens without going through the finger: there is too much green or blue. Cover the gap between this lens and the other phone\'s flashlight completely, or put a dark cloth over both phones.'];
+  if (is(s,'colour','Leaking')) return ['bad', 'Own light is reaching the lens without going through tissue. Press the fingertip pad so it covers both the lens and the flashlight.'];
+  for (const [c, name] of [[o,'other phone\'s light'],[s,'own light']])
+    if (is(c,'level','Dim')) return ['warn', 'The signal is faint. ' + (locked ? 'Raise "Exposure, '+name+'".' : 'Check that the finger fully covers the lens and the light.')];
+  if (is(o,'pulse','Movement') || is(s,'pulse','Movement')) return ['warn', 'Brightness is swinging too much for a pulse. Keep still, rest the forearm, and press lightly.'];
+  if (is(o,'colour','Some leak') || is(s,'colour','Some leak')) return ['warn', 'A little light may be leaking past the finger. A dark cloth over the phones usually fixes this.'];
+  if (is(o,'pulse','Weak') || is(o,'pulse','Unclear') || is(s,'pulse','Weak') || is(s,'pulse','Unclear')) return ['warn', 'No clear pulse yet. Press more lightly, keep the hand warm, and give it a few slots.'];
+  if (o || s) return ['ok', 'Signal looks good on the paths measured so far.'];
+  return ['idle', 'Checks appear as soon as a light slot starts.'];
+}
+
 // ---------- rendering ----------
 function renderMetrics(){
   for (const [kind, id] of [['other','t-metrics'],['self','r-metrics']]) {
@@ -513,10 +688,16 @@ function loop(){
 function csv(){
   const head = 't_ms,phase,r,g,b,luma\n';
   const rows = log.map(f => [(f.t-t0).toFixed(1), f.phase, f.r.toFixed(2), f.g.toFixed(2), f.b.toFixed(2), f.y.toFixed(2)].join(','));
-  return '# role='+cfg.role+' slot_ms='+cfg.slotMs+' gap_ms='+cfg.gapMs+'\n'+head+rows.join('\n');
+  return camLine()+'\n'+head+rows.join('\n');
+}
+function camLine(){
+  const st = track && track.getSettings ? track.getSettings() : {};
+  return '# role='+cfg.role+' slot_ms='+cfg.slotMs+' gap_ms='+cfg.gapMs+' source='+(src?src.kind:'none')+' camera='+(cam.label||'-')
+    +' torch='+(hasTorch?'yes':'no')+' exposure='+cam.mode+(cam.mode==='locked'?' own='+fmtExp(cam.own)+' other='+fmtExp(cam.other):'')
+    +' reported='+(st.exposureMode||'-')+(st.exposureTime?' '+fmtExp(st.exposureTime):'')+' ua='+navigator.userAgent.replace(/[,\n]/g,' ');
 }
 function summary(){
-  const lines=['kind,start_ms,dur_ms,bpm,acdc_r,acdc_g,acdc_b,ratio_rg,dc_r,dc_g,dc_b,quality'];
+  const lines=[camLine(),'kind,start_ms,dur_ms,bpm,acdc_r,acdc_g,acdc_b,ratio_rg,dc_r,dc_g,dc_b,quality'];
   for (const k of ['other','self']) for (const r of results[k]) lines.push([k==='other'?'through':'bounced', r.start.toFixed(0), r.dur.toFixed(0), r.bpm?r.bpm.toFixed(1):'', ...['r','g','b'].map(c=>r.acdc[c]!=null?r.acdc[c].toFixed(3):''), r.ratio?r.ratio.toFixed(3):'', ...['r','g','b'].map(c=>r.dc[c].toFixed(1)), r.quality.toFixed(2)].join(','));
   return lines.join('\n');
 }
@@ -531,7 +712,7 @@ function saveCsv(){
 }
 function copySummary(){
   const text = summary();
-  navigator.clipboard.writeText(text).then(()=>{ $('saveMsg').textContent='Copied '+(text.split('\n').length-1)+' slots.'; })
+  navigator.clipboard.writeText(text).then(()=>{ $('saveMsg').textContent='Copied '+(text.split('\n').length-2)+' slots.'; })
     .catch(()=>{ $('saveMsg').textContent='Copy was refused by this browser.'; });
 }
 
